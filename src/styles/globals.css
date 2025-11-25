@@ -1,0 +1,139 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: dark;
+
+  /* Crawllr Brand Colors */
+  --color-primary: #ba185e;
+  --color-primary-hover: #a31454;
+  --color-secondary: #ffc759;
+  --color-background: #1a2528;
+  --color-surface: #1f2d32;
+  --color-surface-2: #26363d;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-text: #ffffff;
+  --color-text-muted: #babfd1;
+  --color-glass: rgba(255, 255, 255, 0.05);
+  --color-glow-primary: rgba(186, 24, 94, 0.3);
+  --color-glow-secondary: rgba(255, 199, 89, 0.2);
+
+  /* Legacy tokens for compatibility */
+  --font-size: 16px;
+  --foreground: #ffffff;
+  --card: #1f2d32;
+  --card-foreground: #ffffff;
+  --popover: #1f2d32;
+  --popover-foreground: #ffffff;
+  --primary: #ba185e;
+  --primary-foreground: #ffffff;
+  --secondary: #ffc759;
+  --secondary-foreground: #1a2528;
+  --muted: #26363d;
+  --muted-foreground: #babfd1;
+  --accent: #26363d;
+  --accent-foreground: #ffffff;
+  --destructive: #ba185e;
+  --destructive-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(186, 24, 94, 0.2);
+  --radius: 0.75rem;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-text);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-[#1a2528] text-white;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
