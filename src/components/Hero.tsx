@@ -24,7 +24,7 @@ export function Hero() {
         </h1>
         
         <p className="text-xl md:text-2xl text-[#babfd1] max-w-2xl mx-auto">
-          Crawllr is a social mapping app that lets people discover, create, and share days and nights out, combining maps, live location, and community into one experience.
+          Crawllr is a social network where going on adventures and showing your friends is automatic.
         </p>
         
         <p className="text-lg text-[#9ba4b5] max-w-xl mx-auto">
