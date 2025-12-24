@@ -27,10 +27,12 @@
     <meta name="twitter:image" content="https://crawllr.com/images/logo.png" />
     <link rel="apple-touch-icon" href="/images/logo.png" />
     <title>Crawllr</title>
+    <script>
+      const target = "/?redirect=" + encodeURIComponent(location.pathname + location.search + location.hash);
+      window.location.replace(target);
+    </script>
   </head>
-
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    Redirecting...
   </body>
 </html>
