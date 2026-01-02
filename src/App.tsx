@@ -4,6 +4,7 @@ import { CTA } from "./components/CTA";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { ShareProfilePage } from "./components/ShareProfilePage";
+import { ShareCrawlPage } from "./components/ShareCrawlPage";
 
 const resolvePathname = () => {
   if (typeof window === "undefined") return "/";
@@ -17,20 +18,35 @@ const resolvePathname = () => {
   return window.location.pathname;
 };
 
-const matchSharedProfile = (pathname: string) => {
+const normalizeSharedPath = (pathname: string) => {
   const basePath = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
-  const normalized = basePath && pathname.startsWith(basePath)
+  return basePath && pathname.startsWith(basePath)
     ? pathname.slice(basePath.length) || "/"
     : pathname;
+};
+
+const matchSharedProfile = (pathname: string) => {
+  const normalized = normalizeSharedPath(pathname);
   const match = normalized.match(/^\/user\/([^/?#]+)\/?$/);
   return match ? decodeURIComponent(match[1]) : null;
 };
 
+const matchSharedCrawl = (pathname: string) => {
+  const normalized = normalizeSharedPath(pathname);
+  const match = normalized.match(/^\/crawl\/([^/?#]+)\/?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 export default function App() {
-  const sharedUserId = matchSharedProfile(resolvePathname());
+  const pathname = resolvePathname();
+  const sharedUserId = matchSharedProfile(pathname);
+  const sharedCrawlId = matchSharedCrawl(pathname);
 
   if (sharedUserId) {
     return <ShareProfilePage userId={sharedUserId} />;
+  }
+  if (sharedCrawlId) {
+    return <ShareCrawlPage crawlId={sharedCrawlId} />;
   }
 
   return (
