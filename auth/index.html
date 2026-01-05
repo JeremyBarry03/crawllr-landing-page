@@ -135,13 +135,6 @@
       signInWithEmailLink,
     } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
-    // TODO: Replace with your Firebase project's settings.
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-    };
-
     const titleEl = document.getElementById("title");
     const descEl = document.getElementById("description");
     const statusEl = document.getElementById("status");
@@ -158,6 +151,7 @@
     const mode = params.get("mode");
     const actionCode = params.get("oobCode");
     const continueUrl = params.get("continueUrl");
+    const urlApiKey = params.get("apiKey");
 
     const setStatus = (message, variant = "neutral") => {
       statusEl.textContent = message;
@@ -177,137 +171,192 @@
       descEl.textContent = "Try requesting a fresh link or contact support if this keeps happening.";
     };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    const mergeConfig = (base) => ({
+      apiKey: urlApiKey || base?.apiKey,
+      authDomain: base?.authDomain,
+      projectId: base?.projectId,
+      appId: base?.appId,
+      storageBucket: base?.storageBucket,
+      messagingSenderId: base?.messagingSenderId,
+      measurementId: base?.measurementId,
+    });
 
-    if (!mode || !actionCode) {
-      handleError("Missing action parameters. Make sure you opened the full link from your email.");
-      verifyButton.hidden = true;
-      resetForm.hidden = true;
-      throw new Error("Missing mode or oobCode");
-    }
+    const loadConfig = async () => {
+      if (window.__FIREBASE_CONFIG__) return mergeConfig(window.__FIREBASE_CONFIG__);
 
-    if (mode === "verifyEmail") {
-      titleEl.textContent = "Confirm your email";
-      descEl.textContent = "Tap the button below to finish verifying your email address.";
-      verifyButton.hidden = false;
-      setStatus("Ready to verify.");
-
-      verifyButton.addEventListener("click", async () => {
-        verifyButton.disabled = true;
-        setStatus("Confirming email…");
-        try {
-          await applyActionCode(auth, actionCode);
-          setStatus("Email verified! You can return to the app.", "success");
-          titleEl.textContent = "All set 🎉";
-          descEl.textContent = "Your email is verified. You may close this tab.";
-          redirectIfNeeded();
-        } catch (err) {
-          console.error(err);
-          verifyButton.disabled = false;
-          handleError("That verification link is invalid or has expired.");
+      try {
+        const response = await fetch("./firebase-config.json", { cache: "no-store" });
+        if (response.ok) {
+          const json = await response.json();
+          return mergeConfig(json);
         }
-      });
-    } else if (mode === "resetPassword") {
-      titleEl.textContent = "Reset your password";
-      descEl.textContent = "Choose a new password to regain access.";
-      resetForm.hidden = false;
-      setStatus("Checking your reset link…");
+        if (response.status !== 404) {
+          console.warn("Could not load firebase-config.json", response.status);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch firebase-config.json", err);
+      }
 
-      verifyPasswordResetCode(auth, actionCode)
-        .then(() => {
-          setStatus("Link verified. Enter a new password.");
-        })
-        .catch((err) => {
-          console.error(err);
-          resetForm.hidden = true;
-          handleError("This reset link is invalid or has expired.");
+      return mergeConfig({});
+    };
+
+    const ensureConfig = (config) => {
+      const missingKeys = [];
+      if (!config.apiKey || config.apiKey.startsWith("YOUR_")) missingKeys.push("apiKey");
+      if (!config.authDomain || config.authDomain.startsWith("YOUR_")) missingKeys.push("authDomain");
+      if (!config.appId || config.appId.startsWith("YOUR_")) missingKeys.push("appId");
+
+      if (missingKeys.length) {
+        const missingList = missingKeys.join(", ");
+        handleError(`Firebase config missing (${missingList}). Add your real values to auth/firebase-config.json.`);
+        throw new Error(`Missing Firebase config: ${missingList}`);
+      }
+    };
+
+    (async () => {
+      setStatus("Initializing…");
+      const firebaseConfig = await loadConfig();
+      ensureConfig(firebaseConfig);
+
+      let auth;
+      try {
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+      } catch (err) {
+        console.error(err);
+        handleError("Failed to initialize Firebase. Check your config.");
+        throw err;
+      }
+
+      if (!mode || !actionCode) {
+        handleError("Missing action parameters. Make sure you opened the full link from your email.");
+        verifyButton.hidden = true;
+        resetForm.hidden = true;
+        throw new Error("Missing mode or oobCode");
+      }
+
+      if (mode === "verifyEmail") {
+        titleEl.textContent = "Confirm your email";
+        descEl.textContent = "Tap the button below to finish verifying your email address.";
+        verifyButton.hidden = false;
+        setStatus("Ready to verify.");
+
+        verifyButton.addEventListener("click", async () => {
+          verifyButton.disabled = true;
+          setStatus("Confirming email…");
+          try {
+            await applyActionCode(auth, actionCode);
+            setStatus("Email verified! You can return to the app.", "success");
+            titleEl.textContent = "All set 🎉";
+            descEl.textContent = "Your email is verified. You may close this tab.";
+            redirectIfNeeded();
+          } catch (err) {
+            console.error(err);
+            verifyButton.disabled = false;
+            handleError("That verification link is invalid or has expired.");
+          }
+        });
+      } else if (mode === "resetPassword") {
+        titleEl.textContent = "Reset your password";
+        descEl.textContent = "Choose a new password to regain access.";
+        resetForm.hidden = false;
+        setStatus("Checking your reset link…");
+
+        verifyPasswordResetCode(auth, actionCode)
+          .then(() => {
+            setStatus("Link verified. Enter a new password.");
+          })
+          .catch((err) => {
+            console.error(err);
+            resetForm.hidden = true;
+            handleError("This reset link is invalid or has expired.");
+          });
+
+        resetForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const password = newPasswordInput.value.trim();
+          const confirm = confirmPasswordInput.value.trim();
+
+          if (password.length < 6) {
+            handleError("Password must be at least 6 characters.");
+            return;
+          }
+          if (password !== confirm) {
+            handleError("Passwords do not match.");
+            return;
+          }
+
+          resetButton.disabled = true;
+          setStatus("Updating password…");
+
+          try {
+            await confirmPasswordReset(auth, actionCode, password);
+            setStatus("Password updated. You can return to the app and sign in.", "success");
+            titleEl.textContent = "Password reset";
+            descEl.textContent = "Your password has been changed.";
+            resetForm.hidden = true;
+            redirectIfNeeded();
+          } catch (err) {
+            console.error(err);
+            resetButton.disabled = false;
+            handleError("Unable to reset password. Try requesting a new link.");
+          }
+        });
+      } else if (mode === "signIn") {
+        titleEl.textContent = "Complete sign-in";
+        descEl.textContent = "Enter the email you used so we can finish signing you in.";
+        signInForm.hidden = false;
+        setStatus("Validating link…");
+
+        const storedEmail = window.localStorage.getItem("emailForSignIn");
+        if (storedEmail) {
+          signInEmailInput.value = storedEmail;
+        }
+
+        const completeSignIn = async (email) => {
+          signInButton.disabled = true;
+          setStatus("Signing you in…");
+          try {
+            await signInWithEmailLink(auth, email, window.location.href);
+            window.localStorage.removeItem("emailForSignIn");
+            setStatus("Signed in! You can return to the app.", "success");
+            titleEl.textContent = "Welcome back";
+            descEl.textContent = "You’re signed in. You may close this tab.";
+            signInForm.hidden = true;
+            redirectIfNeeded();
+          } catch (err) {
+            console.error(err);
+            signInButton.disabled = false;
+            handleError("Could not complete sign-in. Double-check the email and try again.");
+          }
+        };
+
+        if (!isSignInWithEmailLink(auth, window.location.href)) {
+          handleError("This sign-in link is invalid or expired.");
+          return;
+        }
+
+        signInForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const email = signInEmailInput.value.trim();
+          if (!email) {
+            handleError("Please enter the email you used to request this link.");
+            return;
+          }
+          completeSignIn(email);
         });
 
-      resetForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const password = newPasswordInput.value.trim();
-        const confirm = confirmPasswordInput.value.trim();
-
-        if (password.length < 6) {
-          handleError("Password must be at least 6 characters.");
-          return;
+        if (storedEmail) {
+          completeSignIn(storedEmail);
+        } else {
+          setStatus("Enter your email to finish signing in.");
         }
-        if (password !== confirm) {
-          handleError("Passwords do not match.");
-          return;
-        }
-
-        resetButton.disabled = true;
-        setStatus("Updating password…");
-
-        try {
-          await confirmPasswordReset(auth, actionCode, password);
-          setStatus("Password updated. You can return to the app and sign in.", "success");
-          titleEl.textContent = "Password reset";
-          descEl.textContent = "Your password has been changed.";
-          resetForm.hidden = true;
-          redirectIfNeeded();
-        } catch (err) {
-          console.error(err);
-          resetButton.disabled = false;
-          handleError("Unable to reset password. Try requesting a new link.");
-        }
-      });
-    } else if (mode === "signIn") {
-      titleEl.textContent = "Complete sign-in";
-      descEl.textContent = "Enter the email you used so we can finish signing you in.";
-      signInForm.hidden = false;
-      setStatus("Validating link…");
-
-      const storedEmail = window.localStorage.getItem("emailForSignIn");
-      if (storedEmail) {
-        signInEmailInput.value = storedEmail;
-      }
-
-      const completeSignIn = async (email) => {
-        signInButton.disabled = true;
-        setStatus("Signing you in…");
-        try {
-          await signInWithEmailLink(auth, email, window.location.href);
-          window.localStorage.removeItem("emailForSignIn");
-          setStatus("Signed in! You can return to the app.", "success");
-          titleEl.textContent = "Welcome back";
-          descEl.textContent = "You’re signed in. You may close this tab.";
-          signInForm.hidden = true;
-          redirectIfNeeded();
-        } catch (err) {
-          console.error(err);
-          signInButton.disabled = false;
-          handleError("Could not complete sign-in. Double-check the email and try again.");
-        }
-      };
-
-      if (!isSignInWithEmailLink(auth, window.location.href)) {
-        handleError("This sign-in link is invalid or expired.");
-        return;
-      }
-
-      signInForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const email = signInEmailInput.value.trim();
-        if (!email) {
-          handleError("Please enter the email you used to request this link.");
-          return;
-        }
-        completeSignIn(email);
-      });
-
-      if (storedEmail) {
-        completeSignIn(storedEmail);
       } else {
-        setStatus("Enter your email to finish signing in.");
+        handleError("Unsupported action. Use the link from your email to verify or reset.");
+        verifyButton.hidden = true;
+        resetForm.hidden = true;
       }
-    } else {
-      handleError("Unsupported action. Use the link from your email to verify or reset.");
-      verifyButton.hidden = true;
-      resetForm.hidden = true;
-    }
+    })();
   </script>
 </body>
 </html>
