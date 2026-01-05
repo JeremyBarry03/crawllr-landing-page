@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crawllr Auth Action</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --error: #f87171;
+      --success: #34d399;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.15), transparent 25%),
+                  radial-gradient(circle at 80% 0%, rgba(244, 114, 182, 0.2), transparent 30%),
+                  var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+    }
+    .card {
+      width: min(420px, 92vw);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+    .status {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      font-size: 14px;
+      color: var(--text);
+    }
+    .status[data-variant="error"] { border-color: rgba(248, 113, 113, 0.5); color: var(--error); }
+    .status[data-variant="success"] { border-color: rgba(52, 211, 153, 0.6); color: var(--success); }
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 15px;
+      box-sizing: border-box;
+      outline: none;
+    }
+    input:focus {
+      border-color: rgba(34, 211, 238, 0.8);
+      box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.2);
+    }
+    button {
+      width: 100%;
+      margin-top: 14px;
+      padding: 13px 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #22d3ee, #06b6d4);
+      color: #0b1224;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(6, 182, 212, 0.35); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+    small { color: var(--muted); display: block; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="title">Checking your link…</h1>
+    <p id="description">Hold on while we process this request.</p>
+    <div id="status" class="status">Initializing…</div>
+    <form id="reset-form" hidden>
+      <div style="margin-top: 12px;">
+        <label for="new-password">New password</label>
+        <input id="new-password" name="new-password" type="password" minlength="6" autocomplete="new-password" required />
+      </div>
+      <div style="margin-top: 12px;">
+        <label for="confirm-password">Confirm password</label>
+        <input id="confirm-password" name="confirm-password" type="password" minlength="6" autocomplete="new-password" required />
+      </div>
+      <button type="submit" id="reset-button">Set new password</button>
+      <small>Passwords must match and be at least 6 characters.</small>
+    </form>
+    <button id="verify-button" hidden>Confirm email</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import {
+      getAuth,
+      applyActionCode,
+      verifyPasswordResetCode,
+      confirmPasswordReset,
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+    // TODO: Replace with your Firebase project's settings.
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+    };
+
+    const titleEl = document.getElementById("title");
+    const descEl = document.getElementById("description");
+    const statusEl = document.getElementById("status");
+    const verifyButton = document.getElementById("verify-button");
+    const resetForm = document.getElementById("reset-form");
+    const resetButton = document.getElementById("reset-button");
+    const newPasswordInput = document.getElementById("new-password");
+    const confirmPasswordInput = document.getElementById("confirm-password");
+
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get("mode");
+    const actionCode = params.get("oobCode");
+    const continueUrl = params.get("continueUrl");
+
+    const setStatus = (message, variant = "neutral") => {
+      statusEl.textContent = message;
+      statusEl.dataset.variant = variant;
+    };
+
+    const redirectIfNeeded = () => {
+      if (continueUrl) {
+        setStatus("Redirecting…", "success");
+        setTimeout(() => { window.location.href = continueUrl; }, 1200);
+      }
+    };
+
+    const handleError = (message) => {
+      setStatus(message, "error");
+      titleEl.textContent = "We hit a snag";
+      descEl.textContent = "Try requesting a fresh link or contact support if this keeps happening.";
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    if (!mode || !actionCode) {
+      handleError("Missing action parameters. Make sure you opened the full link from your email.");
+      verifyButton.hidden = true;
+      resetForm.hidden = true;
+      throw new Error("Missing mode or oobCode");
+    }
+
+    if (mode === "verifyEmail") {
+      titleEl.textContent = "Confirm your email";
+      descEl.textContent = "Tap the button below to finish verifying your email address.";
+      verifyButton.hidden = false;
+      setStatus("Ready to verify.");
+
+      verifyButton.addEventListener("click", async () => {
+        verifyButton.disabled = true;
+        setStatus("Confirming email…");
+        try {
+          await applyActionCode(auth, actionCode);
+          setStatus("Email verified! You can return to the app.", "success");
+          titleEl.textContent = "All set 🎉";
+          descEl.textContent = "Your email is verified. You may close this tab.";
+          redirectIfNeeded();
+        } catch (err) {
+          console.error(err);
+          verifyButton.disabled = false;
+          handleError("That verification link is invalid or has expired.");
+        }
+      });
+    } else if (mode === "resetPassword") {
+      titleEl.textContent = "Reset your password";
+      descEl.textContent = "Choose a new password to regain access.";
+      resetForm.hidden = false;
+      setStatus("Checking your reset link…");
+
+      verifyPasswordResetCode(auth, actionCode)
+        .then(() => {
+          setStatus("Link verified. Enter a new password.");
+        })
+        .catch((err) => {
+          console.error(err);
+          resetForm.hidden = true;
+          handleError("This reset link is invalid or has expired.");
+        });
+
+      resetForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const password = newPasswordInput.value.trim();
+        const confirm = confirmPasswordInput.value.trim();
+
+        if (password.length < 6) {
+          handleError("Password must be at least 6 characters.");
+          return;
+        }
+        if (password !== confirm) {
+          handleError("Passwords do not match.");
+          return;
+        }
+
+        resetButton.disabled = true;
+        setStatus("Updating password…");
+
+        try {
+          await confirmPasswordReset(auth, actionCode, password);
+          setStatus("Password updated. You can return to the app and sign in.", "success");
+          titleEl.textContent = "Password reset";
+          descEl.textContent = "Your password has been changed.";
+          resetForm.hidden = true;
+          redirectIfNeeded();
+        } catch (err) {
+          console.error(err);
+          resetButton.disabled = false;
+          handleError("Unable to reset password. Try requesting a new link.");
+        }
+      });
+    } else {
+      handleError("Unsupported action. Use the link from your email to verify or reset.");
+      verifyButton.hidden = true;
+      resetForm.hidden = true;
+    }
+  </script>
+</body>
+</html>
