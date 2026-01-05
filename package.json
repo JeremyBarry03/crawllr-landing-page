@@ -55,6 +55,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "predev": "npm run generate:auth-config",
+    "prebuild": "npm run generate:auth-config",
     "build": "vite build",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
