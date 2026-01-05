@@ -114,6 +114,14 @@
       <small>Passwords must match and be at least 6 characters.</small>
     </form>
     <button id="verify-button" hidden>Confirm email</button>
+    <form id="signin-form" hidden>
+      <div style="margin-top: 12px;">
+        <label for="signin-email">Email</label>
+        <input id="signin-email" name="signin-email" type="email" autocomplete="email" required />
+      </div>
+      <button type="submit" id="signin-button">Finish sign-in</button>
+      <small>Use the same email you entered in the app.</small>
+    </form>
   </div>
 
   <script type="module">
@@ -123,6 +131,8 @@
       applyActionCode,
       verifyPasswordResetCode,
       confirmPasswordReset,
+      isSignInWithEmailLink,
+      signInWithEmailLink,
     } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
     // TODO: Replace with your Firebase project's settings.
@@ -140,6 +150,9 @@
     const resetButton = document.getElementById("reset-button");
     const newPasswordInput = document.getElementById("new-password");
     const confirmPasswordInput = document.getElementById("confirm-password");
+    const signInForm = document.getElementById("signin-form");
+    const signInButton = document.getElementById("signin-button");
+    const signInEmailInput = document.getElementById("signin-email");
 
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
@@ -241,6 +254,55 @@
           handleError("Unable to reset password. Try requesting a new link.");
         }
       });
+    } else if (mode === "signIn") {
+      titleEl.textContent = "Complete sign-in";
+      descEl.textContent = "Enter the email you used so we can finish signing you in.";
+      signInForm.hidden = false;
+      setStatus("Validating link…");
+
+      const storedEmail = window.localStorage.getItem("emailForSignIn");
+      if (storedEmail) {
+        signInEmailInput.value = storedEmail;
+      }
+
+      const completeSignIn = async (email) => {
+        signInButton.disabled = true;
+        setStatus("Signing you in…");
+        try {
+          await signInWithEmailLink(auth, email, window.location.href);
+          window.localStorage.removeItem("emailForSignIn");
+          setStatus("Signed in! You can return to the app.", "success");
+          titleEl.textContent = "Welcome back";
+          descEl.textContent = "You’re signed in. You may close this tab.";
+          signInForm.hidden = true;
+          redirectIfNeeded();
+        } catch (err) {
+          console.error(err);
+          signInButton.disabled = false;
+          handleError("Could not complete sign-in. Double-check the email and try again.");
+        }
+      };
+
+      if (!isSignInWithEmailLink(auth, window.location.href)) {
+        handleError("This sign-in link is invalid or expired.");
+        return;
+      }
+
+      signInForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const email = signInEmailInput.value.trim();
+        if (!email) {
+          handleError("Please enter the email you used to request this link.");
+          return;
+        }
+        completeSignIn(email);
+      });
+
+      if (storedEmail) {
+        completeSignIn(storedEmail);
+      } else {
+        setStatus("Enter your email to finish signing in.");
+      }
     } else {
       handleError("Unsupported action. Use the link from your email to verify or reset.");
       verifyButton.hidden = true;
