@@ -188,11 +188,17 @@
     const signInButton = document.getElementById("signin-button");
     const signInEmailInput = document.getElementById("signin-email");
 
+    const originalUrl = window.location.href;
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const actionCode = params.get("oobCode");
     const continueUrl = params.get("continueUrl");
     const urlApiKey = params.get("apiKey");
+
+    if (window.location.search) {
+      const cleanedUrl = `${window.location.pathname}${window.location.hash}`;
+      window.history.replaceState({}, "", cleanedUrl);
+    }
 
     const setStatus = (message, variant = "neutral") => {
       statusEl.textContent = message;
@@ -358,7 +364,7 @@
           signInButton.disabled = true;
           setStatus("Signing you in…");
           try {
-            await signInWithEmailLink(auth, email, window.location.href);
+            await signInWithEmailLink(auth, email, originalUrl);
             window.localStorage.removeItem("emailForSignIn");
             setStatus("Signed in! You can return to the app.", "success");
             titleEl.textContent = "Welcome back";
@@ -372,7 +378,7 @@
           }
         };
 
-        if (!isSignInWithEmailLink(auth, window.location.href)) {
+        if (!isSignInWithEmailLink(auth, originalUrl)) {
           handleError("This sign-in link is invalid or expired.");
           return;
         }
