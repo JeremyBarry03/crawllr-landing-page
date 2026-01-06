@@ -205,16 +205,6 @@
       statusEl.dataset.variant = variant;
     };
 
-    const buildAuthDeepLink = () => {
-      const deepLinkParams = new URLSearchParams();
-      deepLinkParams.set("link", originalUrl);
-      if (mode) deepLinkParams.set("mode", mode);
-      if (actionCode) deepLinkParams.set("oobCode", actionCode);
-      if (continueUrl) deepLinkParams.set("continueUrl", continueUrl);
-      if (urlApiKey) deepLinkParams.set("apiKey", urlApiKey);
-      return `crawllr://auth?${deepLinkParams.toString()}`;
-    };
-
     const redirectIfNeeded = () => {
       if (continueUrl) {
         setStatus("Redirecting…", "success");
@@ -271,26 +261,6 @@
     };
 
     (async () => {
-      if (!mode || !actionCode) {
-        handleError("Missing action parameters. Make sure you opened the full link from your email.");
-        verifyButton.hidden = true;
-        resetForm.hidden = true;
-        signInForm.hidden = true;
-        return;
-      }
-
-      const deepLink = buildAuthDeepLink();
-      titleEl.textContent = "Opening Crawllr";
-      descEl.textContent = "We will finish this in the app.";
-      setStatus("Launching the app...");
-      verifyButton.textContent = "Open Crawllr";
-      verifyButton.hidden = false;
-      verifyButton.addEventListener("click", () => {
-        window.location.href = deepLink;
-      });
-      window.location.href = deepLink;
-      return;
-
       setStatus("Initializing…");
       const firebaseConfig = await loadConfig();
       ensureConfig(firebaseConfig);
@@ -303,6 +273,14 @@
         console.error(err);
         handleError("Failed to initialize Firebase. Check your config.");
         throw err;
+      }
+
+      if (!mode || !actionCode) {
+        handleError("Missing action parameters. Make sure you opened the full link from your email.");
+        verifyButton.hidden = true;
+        resetForm.hidden = true;
+        signInForm.hidden = true;
+        throw new Error("Missing mode or oobCode");
       }
 
       if (mode === "verifyEmail") {
