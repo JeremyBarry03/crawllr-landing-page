@@ -1,5 +1,4 @@
-import { Button } from "./ui/button";
-import logo from "/images/logo.png";
+﻿import { Button } from "./ui/button";
 
 export function Header() {
   const scrollToBeta = () => {
@@ -11,17 +10,17 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src={logo} 
-              alt="Crawllr Logo" 
+            <img
+              src="/images/logo.png"
+              alt="Crawllr Logo"
               className="h-10 w-10"
             />
             <span className="text-2xl text-white tracking-tight">
               Crawllr
             </span>
           </div>
-          
-          <Button 
+
+          <Button
             className="bg-gradient-to-r from-[#ba185e] to-[#a31454] hover:from-[#a31454] hover:to-[#8c1049] text-white shadow-lg shadow-[#ba185e]/30"
             onClick={scrollToBeta}
           >
